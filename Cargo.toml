@@ -1,0 +1,31 @@
+#
+# Copyright 2022 Collabora, Ltd.
+#
+# SPDX-License-Identifier: MIT
+#
+[package]
+name = "bundle-gen"
+version = "0.1.0"
+authors = ["Ed Smith <ed.smith@collabora.com>"]
+edition = "2018"
+license = "Apache-2.0/MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+atari-bundle = { path = "lib/atari-bundle" }
+dirs = "4"
+env_logger="0.9"
+goblin = "0.4"
+ldcache_rs = "0.1"
+log = "0.4"
+pathdiff= "0.2"
+serde = {version = "1", features=["derive"]}
+serde_yaml = "0.8"
+shell-words = "1"
+structopt = "0.3"
+tempdir = "0.3"
+thiserror = "1"
+users = "0.11"
+zip = "0.5"

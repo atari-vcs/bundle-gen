@@ -1,0 +1,3 @@
+[submodule "lib/atari-bundle"]
+	path = lib/atari-bundle
+	url = git@github.com:atari-vcs/atari-bundle.git
