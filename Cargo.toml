@@ -15,12 +15,14 @@ license = "Apache-2.0/MIT"
 [dependencies]
 anyhow = "1"
 atari-bundle = { path = "lib/atari-bundle" }
+chrono = { version="0.4", features=["serde"] }
 dirs = "4"
 env_logger="0.9"
 goblin = "0.4"
 ldcache_rs = "0.1"
 log = "0.4"
 pathdiff= "0.2"
+reqwest = { version="0.11", features=["blocking", "multipart"] }
 serde = {version = "1", features=["derive"]}
 serde_yaml = "0.8"
 shell-words = "1"
