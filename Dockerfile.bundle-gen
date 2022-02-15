@@ -17,6 +17,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 COPY ld.so.cache.vcs /usr/local/share/bundle-gen/
 
 COPY --from=builder /usr/local/bin/bundle-gen /usr/local/bin/
+COPY --from=builder /usr/local/bin/bundle-deploy /usr/local/bin/
+COPY --from=builder /usr/local/bin/bundle-read /usr/local/bin/
 COPY make-bundle-ci.sh /usr/local/bin/make-bundle.sh
 RUN chmod +x /usr/local/bin/make-bundle.sh
 
