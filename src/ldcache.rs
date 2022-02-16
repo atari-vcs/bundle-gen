@@ -23,8 +23,8 @@ pub enum LdError {
     Cache(#[from] ldcache_rs::CacheError),
     #[error("Not an ELF-format archive")]
     NotElf,
-    #[error("Missing dependency: {0}")]
-    MissingDependency(String),
+    #[error("Missing dependencies: {}", .0.join(", "))]
+    MissingDependencies(Vec<String>),
 }
 
 fn find_elf_deps<P: AsRef<Path>>(item: P) -> Result<Vec<String>, LdError> {
@@ -133,6 +133,7 @@ pub fn resolve_deps(elves: Vec<FileEntry>) -> Result<Vec<FileEntry>, LdError> {
         }
     }
 
+    let mut missing_deps = BTreeSet::new();
     while let Some(item) = work.pop() {
         trace!("Processing {} for dependencies", item.to_string_lossy());
         match find_elf_deps(&item) {
@@ -161,12 +162,7 @@ pub fn resolve_deps(elves: Vec<FileEntry>) -> Result<Vec<FileEntry>, LdError> {
                                     }
                                 }
                                 None => {
-                                    debug!("Missing dependency: {:?}", d);
-                                    debug!("Own libs are:");
-                                    for dep in own_libs {
-                                        debug!(" - {}", dep.to_string_lossy());
-                                    }
-                                    return Err(LdError::MissingDependency(d));
+                                    missing_deps.insert(d);
                                 }
                             }
                         }
@@ -179,6 +175,20 @@ pub fn resolve_deps(elves: Vec<FileEntry>) -> Result<Vec<FileEntry>, LdError> {
             }
             Err(e) => return Err(e),
         }
+    }
+
+    if !missing_deps.is_empty() {
+        debug!("Missing dependencies:");
+        for d in missing_deps.iter() {
+            debug!(" - {}", d);
+        }
+        debug!("Own libs are:");
+        for dep in own_libs {
+            debug!(" - {}", dep.to_string_lossy());
+        }
+        return Err(LdError::MissingDependencies(
+            missing_deps.into_iter().collect(),
+        ));
     }
 
     Ok(res)
