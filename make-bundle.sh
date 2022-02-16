@@ -18,4 +18,4 @@ SOURCE="$(realpath "$(dirname "$1")")"
 # This is the name of your spec, as it is mapped in the container
 SPEC="/source/$(basename "$1")"
 
-docker run --rm -v "${BUILD}:/build" -v "${SOURCE}:/source:ro" -w /build bundle-gen:latest "${SPEC}"
+docker run --rm -v "${BUILD}:/build" -v "${SOURCE}:/source:ro" -w /build ghcr.io/atari-vcs/bundle-gen:builder "${SPEC}"
