@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use atari_bundle::{BundleConfig, BundleError};
-use log::{trace, warn};
+use log::trace;
 use thiserror::Error;
 use zip::ZipWriter;
 
@@ -55,6 +55,8 @@ pub enum BuildError {
     BadCommand(String),
     #[error("the bundle entry {0} was specified multiple times")]
     DuplicateZipFileEntry(String),
+    #[error("error writing to log file: {0}")]
+    LogError(std::io::Error)
 }
 
 type BuildResult<T> = Result<T, BuildError>;
@@ -82,10 +84,11 @@ impl PathContext {
     }
 }
 
-fn process_dir<P, Q>(path: P, entry_name: Q, files: &mut Vec<FileEntry>) -> BuildResult<()>
+fn process_dir<P, Q, W>(path: P, entry_name: Q, files: &mut Vec<FileEntry>, log: &mut W) -> BuildResult<()>
 where
     P: AsRef<Path>,
     Q: Into<String>,
+    W: Write
 {
     let e = entry_name.into();
     trace!("processing dir {:?} under entry {}", path.as_ref(), e);
@@ -111,16 +114,22 @@ where
                             entry.path(),
                             Path::new(&e).join(relpath).to_string_lossy().to_string(),
                             files,
-                        )?;
+                            log
+                        )?
                     } else {
-                        warn!("skipped entry: only files and directories are supported");
+                        writeln!(log, "WARNING: Skipped entry {}: only files and directories are supported.",
+                                 entry.path().to_string_lossy())
+                            .map_err(BuildError::LogError)?;
                     }
                 } else {
-                    warn!("skipped entry: not a valid path");
+                    writeln!(log, "WARNING: Skipped entry {}: not a valid path.",
+                             entry.path().to_string_lossy())
+                        .map_err(BuildError::LogError)?;
                 }
             }
             Err(e) => {
-                warn!("skipped entry: {}", e);
+                writeln!(log, "WARNING: Skipped entry: {}", e)
+                    .map_err(BuildError::LogError)?;
             }
         }
     }
@@ -219,15 +228,17 @@ fn run_command<W: Write>(cmd: &mut Command, mut log: W) -> BuildResult<()> {
     Ok(())
 }
 
-fn process_file_items<P, Q>(
+fn process_file_items<P, Q, W>(
     items: &[P],
     base_path: Q,
     pc: &PathContext,
     entries: &mut Vec<FileEntry>,
+    log: &mut W
 ) -> BuildResult<()>
 where
     P: AsRef<Path>,
     Q: Into<String>,
+    W: Write
 {
     let s = base_path.into();
     for item in items {
@@ -248,12 +259,15 @@ where
                 } else {
                     zip_path.to_path_buf()
                 };
-                process_dir(path, filename.to_string_lossy().to_string(), entries)?;
+                process_dir(path, filename.to_string_lossy().to_string(), entries, log)?;
             } else {
-                warn!("skipped entry: only files and directories are supported");
+                writeln!(log, "WARNING: skipped entry {}: only files and directories are supported.",
+                         filename.to_string_lossy())
+                    .map_err(BuildError::LogError)?;
             }
         } else {
-            warn!("skipped entry: not a valid path");
+            writeln!(log, "WARNING: skipped entry {}: not a valid path.", item.as_ref().to_string_lossy())
+                .map_err(BuildError::LogError)?;
         }
     }
 
@@ -299,17 +313,17 @@ fn build_phase(
 
     let mut executables_on_disk = Vec::new();
     if let Some(ref executables) = b.executables {
-        process_file_items(executables, "bin", pc, &mut executables_on_disk)?;
+        process_file_items(executables, "bin", pc, &mut executables_on_disk, &mut build_log)?;
     }
 
     let mut libraries_on_disk = Vec::new();
     if let Some(ref libraries) = b.libraries {
-        process_file_items(libraries, "lib", pc, &mut libraries_on_disk)?;
+        process_file_items(libraries, "lib", pc, &mut libraries_on_disk, &mut build_log)?;
     }
 
     let mut resources_on_disk = Vec::new();
     if let Some(ref resources) = b.resources {
-        process_file_items(resources, "res", pc, &mut resources_on_disk)?;
+        process_file_items(resources, "res", pc, &mut resources_on_disk, &mut build_log)?;
     }
 
     // These are elf files that we believe hold dependencies we'd otherwise miss,
@@ -317,7 +331,7 @@ fn build_phase(
     // still be installed by listing them under resources, for example).
     let mut extra_elf_on_disk = Vec::new();
     if let Some(ref files) = b.extra_elf_files {
-        process_file_items(files, "_unused", pc, &mut extra_elf_on_disk)?;
+        process_file_items(files, "_unused", pc, &mut extra_elf_on_disk, &mut build_log)?;
     }
 
     // elf files that can't provide dependencies, like executables and plugins
